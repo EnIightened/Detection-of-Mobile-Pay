@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Detection of Mobile Pay</string>
+    <string name="send">Send</string>
+    <string name="check">Check</string>
+</resources>
