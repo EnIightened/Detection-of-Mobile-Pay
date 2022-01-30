@@ -9,73 +9,86 @@ import android.annotation.TargetApi;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import java.util.Set;
 
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private NosReceiver nosreceiver;
-
     private NotificationManager manager;
-    public String isNotificationListenerEnabled(Context context) {
+    public Boolean isNotificationListenerEnabled(Context context) {
         Set<String> packageNames = NotificationManagerCompat.getEnabledListenerPackages(this);
-        if (packageNames.contains(context.getPackageName())) {
-            return "True";
-        } else {
-            return "False";}
+        return packageNames.contains(context.getPackageName());
     }
-    public void openNotificationListenSettings() {
-        try {
-            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-            startActivity(intent);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
+    Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+    //PendingIntent pendingIntent=PendingIntent.getActivity(this,0,intent,0);
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        IntentFilter filter = new IntentFilter();// 创建IntentFilter对象
-        filter.addAction("android.service.notification.NotificationListenerService");
-        nosreceiver = new NosReceiver();
-        registerReceiver(nosreceiver, filter);// 注册Broadcast Receiver
         setContentView(R.layout.activity_main);
-        manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);//获取系统通知服务
+
+    }
+    protected void onStart(){
+        super.onStart();
         TextView t1 = findViewById(R.id.StateofService);
-        t1.setText(isNotificationListenerEnabled(this));//状态指示器
-        ///编写通知渠道
-        String channelId = "send";
-        String channelName = "聊天消息";
-        int importance = NotificationManager.IMPORTANCE_HIGH;
-        createNotificationChannel(channelId, channelName, importance);
-        channelId = "check";
-        channelName = "订阅消息";
-        importance = NotificationManager.IMPORTANCE_DEFAULT;
-        createNotificationChannel(channelId, channelName, importance);
+        t1.setText(isNotificationListenerEnabled(this)?"True":"False");//通知权限状态指示器
         ///设置按钮界面
         Button check = findViewById(R.id.check);
         check.setOnClickListener(this);
         Button send = findViewById(R.id.send);
         send.setOnClickListener(this);
+        IntentFilter filter = new IntentFilter();// 创建IntentFilter对象
+        filter.addAction("android.service.notification.NotificationListenerService");
+        manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);//获取系统通知服务
+        nosreceiver = new NosReceiver();
+        registerReceiver(nosreceiver, filter);// 注册Broadcast Receiver
+        if(!isNotificationListenerEnabled(this))
+        {
+            //设置状态指示器
+            Notification notification = new NotificationCompat.Builder(this,"check")
+                    .setContentTitle("未开启通知权限")
+                    .setContentText("请在设置中打开")
+                    //.setContentIntent(pendingIntent)
+                    .setSmallIcon(R.drawable.ic_launcher_background)
+                    .setWhen(System.currentTimeMillis())
+                    .setAutoCancel(true)
+                    .build();
+            manager.notify(1, notification);
+        }
+        ///编写通知渠道
+        String channelId = "state";
+        String channelName = "应用状态";
+        int importance = NotificationManager.IMPORTANCE_DEFAULT;
+        createNotificationChannel(channelId, channelName, importance);
+        channelId = "check";
+        channelName = "权限状态";
+        importance = NotificationManager.IMPORTANCE_HIGH;
+        createNotificationChannel(channelId, channelName, importance);
+        //设置状态指示器
+        Notification notification2 = new NotificationCompat.Builder(this,"check")
+                .setContentTitle("DMP正在运行")
+                .setContentText("")
+                .setSmallIcon(R.drawable.ic_launcher_background)
+                .setWhen(System.currentTimeMillis())
+                .build();
+        notification2.flags |= Notification.FLAG_NO_CLEAR;
+        manager.notify(2,notification2);
     }
     protected void onDestroy(){
         super.onDestroy();
+        manager.cancelAll();
         unregisterReceiver(nosreceiver);
     }
 
@@ -92,38 +105,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.send:    //发送通知
-                Notification notification = new NotificationCompat.Builder(this, "send")
-                        .setAutoCancel(true)
-                        .setContentTitle("收到聊天消息")
-                        .setContentText("今天晚上吃什么")
-                        .setWhen(System.currentTimeMillis())
-                        .setSmallIcon(R.mipmap.ic_launcher)
-                        //设置红色
-                        .setColor(Color.parseColor("#F00606"))
-                        .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher))
-                        .build();
-                manager.notify(1, notification);
                 break;
-            case R.id.check:   //查收通知
-                Notification notificationcheck = new NotificationCompat.Builder(this, "check")
-                        .setAutoCancel(true)
-                        .setContentTitle("收到订阅消息")
-                        .setContentText("新闻消息")
-                        .setWhen(System.currentTimeMillis())
-                        .setSmallIcon(R.mipmap.ic_launcher)
-                        .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher))
-                        .build();
-                manager.notify(2, notificationcheck);
-                openNotificationListenSettings();
+            case R.id.check:   //打开设置界面以获取服务权限
+                startActivity(intent);
                 break;
         }
     }
 
     static class NosReceiver extends BroadcastReceiver {
         public void onReceive(Context context,Intent intent) {
-            String[] nos =intent.getStringArrayExtra("nos");
-            Toast.makeText(context, nos[0]+nos[1]+nos[2], Toast.LENGTH_SHORT).show();
+            String nos =intent.getStringExtra("nos");
+            Toast.makeText(context,nos, Toast.LENGTH_SHORT).show();
         }
     }
-
 }

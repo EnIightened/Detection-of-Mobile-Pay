@@ -5,15 +5,17 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
-import android.text.TextUtils;
-import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
-import androidx.appcompat.app.AppCompatActivity;
 
-import java.util.List;
 
 public class MyNotificationListener extends NotificationListenerService {
+    private String getMoneyCount(String string)
+    {
+        char[] m =new char[10];
+        string.getChars(string.lastIndexOf("款")+1,string.lastIndexOf("元"),m,0);
+        String str=new String(m);
+        return str;
+    }
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         String pkg=sbn.getPackageName();
@@ -29,19 +31,18 @@ public class MyNotificationListener extends NotificationListenerService {
             title = extras.getString(Notification.EXTRA_TITLE, "");
             // 获取通知内容
             content = extras.getString(Notification.EXTRA_TEXT, "");
-            if (!TextUtils.isEmpty(title) && title.contains("订阅"))
+            String nos=getMoneyCount(content);
+            Intent intent = new Intent("android.service.notification.NotificationListenerService");
+            intent.putExtra("nos",nos);
+            if (pkg.equals("com.tencent.mm")&&title.contains("微信支付")&&content.contains("微信支付收款"))
             {
-                //Toast.makeText(getApplicationContext(), "检测到订阅", Toast.LENGTH_SHORT).show();
+                sendBroadcast(intent);
             }
-            else if (!TextUtils.isEmpty(title) && content.contains("吃什么"))
+            else if (pkg.equals("com.eg.android.AlipayGphone")&&title.contains("收款通知")&&content.contains("通过扫码"))
             {
-                //Toast.makeText(getApplicationContext(), "检测到聊天消息", Toast.LENGTH_SHORT).show();
+                sendBroadcast(intent);
             }
         }
-        String[] nos = {pkg,title,content};
-        Intent intent = new Intent("android.service.notification.NotificationListenerService");
-        intent.putExtra("nos",nos);
-        sendBroadcast(intent);
     }
 
 
