@@ -17,7 +17,6 @@ import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -105,6 +104,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.send:    //发送通知
+                Notification notification3 = new NotificationCompat.Builder(this,"check")
+                        .setContentTitle("test")
+                        .setContentText("this is a test")
+                        //.setContentIntent(pendingIntent)
+                        .setSmallIcon(R.drawable.ic_launcher_background)
+                        .setWhen(System.currentTimeMillis())
+                        .setAutoCancel(true)
+                        .build();
+                manager.notify(3, notification3);
                 break;
             case R.id.check:   //打开设置界面以获取服务权限
                 startActivity(intent);
@@ -114,8 +122,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     static class NosReceiver extends BroadcastReceiver {
         public void onReceive(Context context,Intent intent) {
-            String nos =intent.getStringExtra("nos");
-            Toast.makeText(context,nos, Toast.LENGTH_SHORT).show();
+            String[] nos =intent.getStringArrayExtra("nos");
+            if(nos[0].equals("com.tencent.mm"))
+                nos[0]="微信支付";
+            else nos[0]="支付宝收款";
+            Toast.makeText(context,nos[0]+nos[1], Toast.LENGTH_SHORT).show();
         }
     }
 }

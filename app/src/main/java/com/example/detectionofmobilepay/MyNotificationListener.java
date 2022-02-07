@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
-import android.widget.Toast;
 
 
 public class MyNotificationListener extends NotificationListenerService {
@@ -31,15 +30,23 @@ public class MyNotificationListener extends NotificationListenerService {
             title = extras.getString(Notification.EXTRA_TITLE, "");
             // 获取通知内容
             content = extras.getString(Notification.EXTRA_TEXT, "");
-            String nos=getMoneyCount(content);
             Intent intent = new Intent("android.service.notification.NotificationListenerService");
-            intent.putExtra("nos",nos);
             if (pkg.equals("com.tencent.mm")&&title.contains("微信支付")&&content.contains("微信支付收款"))
             {
+                String[] nos={pkg,getMoneyCount(content)};
+                intent.putExtra("nos",nos);
                 sendBroadcast(intent);
             }
             else if (pkg.equals("com.eg.android.AlipayGphone")&&title.contains("收款通知")&&content.contains("通过扫码"))
             {
+                String[] nos={pkg,getMoneyCount(content)};
+                intent.putExtra("nos",nos);
+                sendBroadcast(intent);
+            }
+            else if(title.contains("test")&&content.contains("this is a test"))
+            {
+                String[] toast={"nos","getit"};
+                intent.putExtra("nos",toast);
                 sendBroadcast(intent);
             }
         }
