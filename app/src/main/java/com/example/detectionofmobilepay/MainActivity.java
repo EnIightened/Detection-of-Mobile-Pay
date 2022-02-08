@@ -16,20 +16,46 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
-
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    private Socket socket = null;
+    private ServerSocket ss = null;
     private NosReceiver nosreceiver;
     private NotificationManager manager;
+    private final int PORT = 5000;
+    protected static final int MSG_ID = 0x13;
     public Boolean isNotificationListenerEnabled(Context context) {
         Set<String> packageNames = NotificationManagerCompat.getEnabledListenerPackages(this);
         return packageNames.contains(context.getPackageName());
+    }
+    public Boolean BluetoothConnected(){
+        return true;
+    }
+    public void SendtoBluetooth(String st){
+        Toast.makeText(getApplicationContext(),st,Toast.LENGTH_SHORT).show();
     }
     Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
     //PendingIntent pendingIntent=PendingIntent.getActivity(this,0,intent,0);
@@ -37,13 +63,52 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
     }
     protected void onStart(){
         super.onStart();
         TextView t1 = findViewById(R.id.StateofService);
         t1.setText(isNotificationListenerEnabled(this)?"True":"False");//通知权限状态指示器
-        ///设置按钮界面
+        //设置开关
+        @SuppressLint("UseSwitchCompatOrMaterialCode")
+        Switch switch0 =(Switch)findViewById(R.id.switch1);
+        switch0.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                if(b)
+                {
+                    if(BluetoothConnected()){
+                        Thread myCommsThread = new Thread(new CommsThread());
+                        myCommsThread.start();
+                    } else {
+                        new Thread(() -> {
+                            try {
+                                InetAddress IPAdd = InetAddress.getByName("");
+                                socket = new Socket(IPAdd,PORT);
+                            } catch (UnknownHostException e1) {
+                                e1.printStackTrace();
+                            } catch (IOException e1){
+                                e1.printStackTrace();
+                            }
+                        });
+                    }
+                }
+                else
+                {
+                    if(ss!=null)
+                        try {
+                            ss.close();
+                        } catch (IOException e){
+                            e.printStackTrace();
+                        }
+                    if(socket!=null) try {
+                        socket.close();
+                    } catch (IOException e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+        //设置按钮界面
         Button check = findViewById(R.id.check);
         check.setOnClickListener(this);
         Button send = findViewById(R.id.send);
@@ -84,13 +149,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .build();
         notification2.flags |= Notification.FLAG_NO_CLEAR;
         manager.notify(2,notification2);
+        //连接蓝牙
+
     }
-    protected void onDestroy(){
+    protected void onDestroy() {
         super.onDestroy();
         manager.cancelAll();
         unregisterReceiver(nosreceiver);
+        if(ss!=null)
+            try {
+                ss.close();
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        if(socket!=null) try {
+            socket.close();
+        } catch (IOException e){
+            e.printStackTrace();
+        }
     }
-
     @TargetApi(Build.VERSION_CODES.O)
     private void createNotificationChannel(String channelId, String channelName, int importance) {
         NotificationChannel channel = new NotificationChannel(channelId, channelName, importance);
@@ -119,14 +196,62 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
         }
     }
+    private final Handler myhandler = new Handler(Looper.getMainLooper()){
+        public void handleMessage(Message msg){
+            if (msg.what==MSG_ID) {
+                SendtoBluetooth(msg.obj.toString());
+            }
+            super.handleMessage(msg);
+        }
+    };
+    class CommsThread implements Runnable {
+         public void run() {
+             Socket s = null;
+             try {
+                 ss = new ServerSocket(PORT);
+                 while (!Thread.currentThread().isInterrupted()) {
+                     Message m = new Message();
+                     m.what = MSG_ID;
+                     try {
+                         if (s == null) s = ss.accept();
+                         BufferedReader input = new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8));
+                         m.obj = input.readLine();
+                         myhandler.sendMessage(m);
+                     } catch (IOException e) {
+                         e.printStackTrace();
+                     }
+                 }
+             } catch (IOException e) {
+                 e.printStackTrace();
+             }
 
-    static class NosReceiver extends BroadcastReceiver {
+         }
+    }
+
+    class NosReceiver extends BroadcastReceiver {
         public void onReceive(Context context,Intent intent) {
             String[] nos =intent.getStringArrayExtra("nos");
             if(nos[0].equals("com.tencent.mm"))
                 nos[0]="微信支付";
             else nos[0]="支付宝收款";
             Toast.makeText(context,nos[0]+nos[1], Toast.LENGTH_SHORT).show();
+            if(BluetoothConnected()){
+                SendtoBluetooth(nos[0]);
+                SendtoBluetooth(nos[1]);
+            }
+            else{
+                try {
+                    PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8)),true);
+                    out.println(nos[0]);
+                    out.println(nos[1]);
+                } catch (UnknownHostException e1){
+                    e1.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }

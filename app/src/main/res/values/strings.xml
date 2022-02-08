@@ -2,4 +2,7 @@
     <string name="app_name">Detection of Mobile Pay</string>
     <string name="send">Send</string>
     <string name="check">Check</string>
+    <string name="switch1">关闭服务</string>
+    <string name="switch2">开启服务</string>
+    <string name="IP">IP NUMBER</string>
 </resources>
